@@ -84,7 +84,7 @@ class CaroGame:
                         self.history_o.pop(0)
                     self.board[r][c] = PLAYER_O
                     self.history_o.append((r, c))
-                    score = self.minimax(False, 9, alpha, beta)
+                    score = self.minimax(False, 6, alpha, beta)
                     self.history_o.pop()
                     self.board[r][c] = EMPTY
                     if removed:
