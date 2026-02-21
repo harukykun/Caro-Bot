@@ -16,6 +16,7 @@ EMOJI_O = "⭕"
 
 MAX_PIECES = 3
 CATEGORY_ID = 1474844901882466475
+BOT_GOES_FIRST = True
 
 
 class CaroGame:
@@ -399,6 +400,10 @@ class CaroCog(commands.Cog):
             return
 
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
+        if BOT_GOES_FIRST:
+            ai_pos = game.ai_move()
+            if ai_pos:
+                game.place(ai_pos[0], ai_pos[1])
         self.games[key] = game
 
         board_view = BoardView(game, self, key)
