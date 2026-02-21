@@ -7,10 +7,20 @@ import os
 import json
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "caro_config.json")
+_config_cache = {}
+_config_mtime = 0
 
 def load_config():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    global _config_cache, _config_mtime
+    try:
+        mt = os.path.getmtime(CONFIG_PATH)
+    except OSError:
+        return _config_cache
+    if mt != _config_mtime:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            _config_cache = json.load(f)
+        _config_mtime = mt
+    return _config_cache
 
 def cfg(key):
     return load_config()[key]
