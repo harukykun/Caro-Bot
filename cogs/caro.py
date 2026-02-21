@@ -401,9 +401,8 @@ class CaroCog(commands.Cog):
 
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
         if BOT_GOES_FIRST:
-            ai_pos = game.ai_move()
-            if ai_pos:
-                game.place(ai_pos[0], ai_pos[1])
+            r, c = random.randint(0, 2), random.randint(0, 2)
+            game.place(r, c)
         self.games[key] = game
 
         board_view = BoardView(game, self, key)
