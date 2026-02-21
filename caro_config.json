@@ -1,0 +1,16 @@
+{
+    "board_size": 3,
+    "max_pieces": 3,
+    "minimax_depth": 1,
+    "bot_goes_first": true,
+    "bot_mistake_enabled": true,
+    "bot_mistake_chance": 30,
+    "category_id": 1474844901882466475,
+    "game_timeout": 300,
+    "challenge_timeout": 60,
+    "channel_delete_delay": 10,
+    "channel_reset_delay": 5,
+    "emoji_x": "❌",
+    "emoji_o": "⭕",
+    "emoji_empty": "⬜"
+}
