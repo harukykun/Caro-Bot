@@ -70,6 +70,8 @@ class CaroGame:
     def ai_move(self):
         best_score = float('-inf')
         best_move = None
+        alpha = float('-inf')
+        beta = float('inf')
         for r in range(3):
             for c in range(3):
                 if self.board[r][c] == EMPTY:
@@ -81,7 +83,7 @@ class CaroGame:
                         self.history_o.pop(0)
                     self.board[r][c] = PLAYER_O
                     self.history_o.append((r, c))
-                    score = self.minimax(False, 6)
+                    score = self.minimax(False, 9, alpha, beta)
                     self.history_o.pop()
                     self.board[r][c] = EMPTY
                     if removed:
@@ -90,15 +92,16 @@ class CaroGame:
                     if score > best_score:
                         best_score = score
                         best_move = (r, c)
+                    alpha = max(alpha, best_score)
         return best_move
 
-    def minimax(self, is_ai_turn, depth):
+    def minimax(self, is_ai_turn, depth, alpha, beta):
         if self.check_win(PLAYER_O):
-            return 1
+            return 10 - (9 - depth)
         if self.check_win(PLAYER_X):
-            return -1
+            return -10 + (9 - depth)
         if depth <= 0:
-            return 0
+            return self.evaluate()
 
         player = PLAYER_O if is_ai_turn else PLAYER_X
         history = self.get_history(player)
@@ -116,12 +119,15 @@ class CaroGame:
                             history.pop(0)
                         self.board[r][c] = player
                         history.append((r, c))
-                        best = max(best, self.minimax(False, depth - 1))
+                        best = max(best, self.minimax(False, depth - 1, alpha, beta))
                         history.pop()
                         self.board[r][c] = EMPTY
                         if removed:
                             self.board[removed[0]][removed[1]] = player
                             history.insert(0, removed)
+                        alpha = max(alpha, best)
+                        if beta <= alpha:
+                            return best
             return best
         else:
             best = float('inf')
@@ -136,21 +142,43 @@ class CaroGame:
                             history.pop(0)
                         self.board[r][c] = player
                         history.append((r, c))
-                        best = min(best, self.minimax(True, depth - 1))
+                        best = min(best, self.minimax(True, depth - 1, alpha, beta))
                         history.pop()
                         self.board[r][c] = EMPTY
                         if removed:
                             self.board[removed[0]][removed[1]] = player
                             history.insert(0, removed)
+                        beta = min(beta, best)
+                        if beta <= alpha:
+                            return best
             return best
+
+    def evaluate(self):
+        lines = []
+        for i in range(3):
+            lines.append([(i, 0), (i, 1), (i, 2)])
+            lines.append([(0, i), (1, i), (2, i)])
+        lines.append([(0, 0), (1, 1), (2, 2)])
+        lines.append([(0, 2), (1, 1), (2, 0)])
+
+        score = 0
+        for line in lines:
+            values = [self.board[r][c] for r, c in line]
+            ai_count = values.count(PLAYER_O)
+            player_count = values.count(PLAYER_X)
+            if ai_count > 0 and player_count == 0:
+                score += ai_count
+            elif player_count > 0 and ai_count == 0:
+                score -= player_count
+        return score
 
 
 class BoardView(discord.ui.View):
-    def __init__(self, game, cog, channel_id):
+    def __init__(self, game, cog, game_key):
         super().__init__(timeout=300)
         self.game = game
         self.cog = cog
-        self.channel_id = channel_id
+        self.game_key = game_key
         self.build_buttons()
 
     def build_buttons(self):
@@ -193,7 +221,7 @@ class BoardView(discord.ui.View):
                     style=style,
                     disabled=disabled,
                     row=r,
-                    custom_id=f"caro_{self.channel_id}_{r}_{c}"
+                    custom_id=f"caro_{self.game_key}_{r}_{c}"
                 )
                 button.callback = self.make_callback(r, c)
                 self.add_item(button)
@@ -215,19 +243,20 @@ class BoardView(discord.ui.View):
             embed = self.cog.make_embed(self.game)
             await interaction.response.edit_message(embed=embed, view=self)
 
-            if self.game.finished and self.game.game_channel:
-                if self.game.announce_message:
-                    result_embed = self.cog.make_embed(self.game)
+            if self.game.finished:
+                if self.game.game_channel:
+                    if self.game.announce_message:
+                        result_embed = self.cog.make_embed(self.game)
+                        try:
+                            await self.game.announce_message.edit(embed=result_embed)
+                        except discord.NotFound:
+                            pass
+                    await asyncio.sleep(10)
                     try:
-                        await self.game.announce_message.edit(embed=result_embed)
+                        await self.game.game_channel.delete()
                     except discord.NotFound:
                         pass
-                await asyncio.sleep(10)
-                try:
-                    await self.game.game_channel.delete()
-                except discord.NotFound:
-                    pass
-                self.cog.games.pop(self.channel_id, None)
+                self.cog.games.pop(self.game_key, None)
 
         return callback
 
@@ -272,7 +301,7 @@ class ChallengeView(discord.ui.View):
         channel_name = f"{self.challenger.display_name}-vs-{self.challenged.display_name}"
         game_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
 
-        game = CaroGame(self.challenger, self.challenged, is_pvp=True)
+        game = CaroGame(self.challenged, self.challenger, is_pvp=True)
         game.game_channel = game_channel
         key = game_channel.id
         self.cog.games[key] = game
@@ -364,9 +393,9 @@ class CaroCog(commands.Cog):
 
     @caro_group.command(name="bot", description="Chơi với AI")
     async def caro_bot(self, interaction: discord.Interaction):
-        key = interaction.channel_id
+        key = f"bot_{interaction.user.id}"
         if key in self.games and not self.games[key].finished:
-            await interaction.response.send_message("❌ Kênh này đang có trận đấu!", ephemeral=True)
+            await interaction.response.send_message("❌ Bạn đang có trận đấu với bot!", ephemeral=True)
             return
 
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
