@@ -401,6 +401,7 @@ class CaroCog(commands.Cog):
 
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
         if BOT_GOES_FIRST:
+            game.current_turn = PLAYER_O
             r, c = random.randint(0, 2), random.randint(0, 2)
             game.place(r, c)
         self.games[key] = game
