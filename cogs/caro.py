@@ -5,23 +5,34 @@ import random
 import asyncio
 import os
 
+# ══════════════════════════════════════════════
+#                   CONFIG
+# ══════════════════════════════════════════════
+
+BOARD_SIZE = 3
+MAX_PIECES = 3
+MINIMAX_DEPTH = 2
+BOT_GOES_FIRST = True
+CATEGORY_ID = 1474844901882466475
+GAME_TIMEOUT = 300
+CHALLENGE_TIMEOUT = 60
+CHANNEL_DELETE_DELAY = 10
+CHANNEL_RESET_DELAY = 5
+
+EMOJI_X = "❌"
+EMOJI_O = "⭕"
+EMOJI_EMPTY = "⬜"
+
+# ══════════════════════════════════════════════
+
 EMPTY = 0
 PLAYER_X = 1
 PLAYER_O = 2
 
-EMOJI_EMPTY = "⬜"
-EMOJI_X = "❌"
-EMOJI_O = "⭕"
-
-
-MAX_PIECES = 3
-CATEGORY_ID = 1474844901882466475
-BOT_GOES_FIRST = True
-
 
 class CaroGame:
     def __init__(self, player_x, player_o, is_pvp=True):
-        self.board = [[EMPTY] * 3 for _ in range(3)]
+        self.board = [[EMPTY] * BOARD_SIZE for _ in range(BOARD_SIZE)]
         self.player_x = player_x
         self.player_o = player_o
         self.is_pvp = is_pvp
@@ -57,14 +68,14 @@ class CaroGame:
 
     def check_win(self, player):
         b = self.board
-        for i in range(3):
-            if b[i][0] == b[i][1] == b[i][2] == player:
+        for i in range(BOARD_SIZE):
+            if all(b[i][c] == player for c in range(BOARD_SIZE)):
                 return True
-            if b[0][i] == b[1][i] == b[2][i] == player:
+            if all(b[r][i] == player for r in range(BOARD_SIZE)):
                 return True
-        if b[0][0] == b[1][1] == b[2][2] == player:
+        if all(b[i][i] == player for i in range(BOARD_SIZE)):
             return True
-        if b[0][2] == b[1][1] == b[2][0] == player:
+        if all(b[i][BOARD_SIZE - 1 - i] == player for i in range(BOARD_SIZE)):
             return True
         return False
 
@@ -73,8 +84,8 @@ class CaroGame:
         best_move = None
         alpha = float('-inf')
         beta = float('inf')
-        for r in range(3):
-            for c in range(3):
+        for r in range(BOARD_SIZE):
+            for c in range(BOARD_SIZE):
                 if self.board[r][c] == EMPTY:
                     removed = None
                     if len(self.history_o) >= MAX_PIECES:
@@ -84,7 +95,7 @@ class CaroGame:
                         self.history_o.pop(0)
                     self.board[r][c] = PLAYER_O
                     self.history_o.append((r, c))
-                    score = self.minimax(False, 6, alpha, beta)
+                    score = self.minimax(False, MINIMAX_DEPTH, alpha, beta)
                     self.history_o.pop()
                     self.board[r][c] = EMPTY
                     if removed:
@@ -98,9 +109,9 @@ class CaroGame:
 
     def minimax(self, is_ai_turn, depth, alpha, beta):
         if self.check_win(PLAYER_O):
-            return 10 - (9 - depth)
+            return 10 - (MINIMAX_DEPTH + 3 - depth)
         if self.check_win(PLAYER_X):
-            return -10 + (9 - depth)
+            return -10 + (MINIMAX_DEPTH + 3 - depth)
         if depth <= 0:
             return self.evaluate()
 
@@ -109,8 +120,8 @@ class CaroGame:
 
         if is_ai_turn:
             best = float('-inf')
-            for r in range(3):
-                for c in range(3):
+            for r in range(BOARD_SIZE):
+                for c in range(BOARD_SIZE):
                     if self.board[r][c] == EMPTY:
                         removed = None
                         if len(history) >= MAX_PIECES:
@@ -132,8 +143,8 @@ class CaroGame:
             return best
         else:
             best = float('inf')
-            for r in range(3):
-                for c in range(3):
+            for r in range(BOARD_SIZE):
+                for c in range(BOARD_SIZE):
                     if self.board[r][c] == EMPTY:
                         removed = None
                         if len(history) >= MAX_PIECES:
@@ -156,11 +167,11 @@ class CaroGame:
 
     def evaluate(self):
         lines = []
-        for i in range(3):
-            lines.append([(i, 0), (i, 1), (i, 2)])
-            lines.append([(0, i), (1, i), (2, i)])
-        lines.append([(0, 0), (1, 1), (2, 2)])
-        lines.append([(0, 2), (1, 1), (2, 0)])
+        for i in range(BOARD_SIZE):
+            lines.append([(i, c) for c in range(BOARD_SIZE)])
+            lines.append([(r, i) for r in range(BOARD_SIZE)])
+        lines.append([(i, i) for i in range(BOARD_SIZE)])
+        lines.append([(i, BOARD_SIZE - 1 - i) for i in range(BOARD_SIZE)])
 
         score = 0
         for line in lines:
@@ -176,7 +187,7 @@ class CaroGame:
 
 class BoardView(discord.ui.View):
     def __init__(self, game, cog, game_key):
-        super().__init__(timeout=300)
+        super().__init__(timeout=GAME_TIMEOUT)
         self.game = game
         self.cog = cog
         self.game_key = game_key
@@ -194,8 +205,8 @@ class BoardView(discord.ui.View):
                     will_remove_x = history[0]
                 else:
                     will_remove_o = history[0]
-        for r in range(3):
-            for c in range(3):
+        for r in range(BOARD_SIZE):
+            for c in range(BOARD_SIZE):
                 val = self.game.board[r][c]
                 if val == PLAYER_X:
                     if will_remove_x == (r, c):
@@ -252,7 +263,7 @@ class BoardView(discord.ui.View):
                             await self.game.announce_message.edit(embed=result_embed)
                         except discord.NotFound:
                             pass
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(CHANNEL_DELETE_DELAY)
                     try:
                         await self.game.game_channel.delete()
                     except discord.NotFound:
@@ -269,7 +280,7 @@ class BoardView(discord.ui.View):
 
 class ChallengeView(discord.ui.View):
     def __init__(self, challenger, challenged, cog):
-        super().__init__(timeout=60)
+        super().__init__(timeout=CHALLENGE_TIMEOUT)
         self.challenger = challenger
         self.challenged = challenged
         self.cog = cog
@@ -402,7 +413,7 @@ class CaroCog(commands.Cog):
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
         if BOT_GOES_FIRST:
             game.current_turn = PLAYER_O
-            r, c = random.randint(0, 2), random.randint(0, 2)
+            r, c = random.randint(0, BOARD_SIZE - 1), random.randint(0, BOARD_SIZE - 1)
             game.place(r, c)
         self.games[key] = game
 
@@ -423,7 +434,7 @@ class CaroCog(commands.Cog):
 
         if game_channel and game_channel.id == interaction.channel_id:
             await interaction.response.send_message("Trận đấu đã bị hủy. Xóa phòng trong 5s...")
-            await asyncio.sleep(5)
+            await asyncio.sleep(CHANNEL_RESET_DELAY)
             try:
                 await game_channel.delete()
             except discord.NotFound:
