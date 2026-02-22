@@ -433,7 +433,10 @@ class CaroCog(commands.Cog):
             return
 
         game = CaroGame(interaction.user, self.bot.user, is_pvp=False)
-        if cfg("bot_goes_first"):
+        bot_first = cfg("bot_goes_first")
+        if bot_first == "random":
+            bot_first = random.choice([True, False])
+        if bot_first:
             game.current_turn = PLAYER_O
             r, c = random.randint(0, cfg("board_size") - 1), random.randint(0, cfg("board_size") - 1)
             game.place(r, c)
