@@ -262,15 +262,20 @@ class BoardView(discord.ui.View):
                 return
 
             self.game.place(row, col)
-
-            if not self.game.finished and not self.game.is_pvp and self.game.current_turn == PLAYER_O:
-                ai_pos = self.game.ai_move()
-                if ai_pos:
-                    self.game.place(ai_pos[0], ai_pos[1])
-
             self.build_buttons()
             embed = self.cog.make_embed(self.game)
             await interaction.response.edit_message(embed=embed, view=self)
+
+            if not self.game.finished and not self.game.is_pvp and self.game.current_turn == PLAYER_O:
+                delay = cfg("bot_move_delay")
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                ai_pos = self.game.ai_move()
+                if ai_pos:
+                    self.game.place(ai_pos[0], ai_pos[1])
+                self.build_buttons()
+                embed = self.cog.make_embed(self.game)
+                await interaction.message.edit(embed=embed, view=self)
 
             if self.game.finished:
                 if self.game.game_channel:

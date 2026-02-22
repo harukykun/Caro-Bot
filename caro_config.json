@@ -9,6 +9,7 @@
     "game_timeout": 300,
     "challenge_timeout": 60,
     "channel_delete_delay": 10,
+    "bot_move_delay": 1.5,
     "channel_reset_delay": 5,
     "emoji_x": "❌",
     "emoji_o": "⭕",
