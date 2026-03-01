@@ -1,5 +1,7 @@
 {
     "board_size": 3,
+    "advan_board_size": 10,
+    "advan_win_length": 5,
     "max_pieces": 3,
     "minimax_depth": 9,
     "bot_goes_first": "random",
